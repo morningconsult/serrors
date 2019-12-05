@@ -90,8 +90,8 @@ FUNCTION_NAME (FILE_PATH_AND_NAME:LINE_NUMBER)
 If you want to write your own template, there are three valid variables:
 
 - .Function (for the function name),
-  - .File (for the file path and name)
-  - .Line (for the line number).
+- .File (for the file path and name)
+- .Line (for the line number).
 
 If you supply an error that doesn't have an `serrors.StackTracer` in its unwrap
 chain, `nil` is returned for both the slice of strings and the error. If an invalid
