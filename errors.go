@@ -183,6 +183,7 @@ func (se StackErr) Error() string {
 // Format controls the optional display of the stack trace. Use %+v to output the stack trace, use %v or %s to output
 // the wrapped error only, use %q to get a single-quoted character literal safely escaped with Go syntax for the wrapped
 // error.
+// Implementation borrowed from https://github.com/pkg/errors/blob/master/errors.go
 func (se StackErr) Format(s fmt.State, verb rune) {
 	switch verb {
 	case 'v':

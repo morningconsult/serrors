@@ -1,7 +1,10 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/morningconsult/serrors)](https://goreportcard.com/report/github.com/morningconsult/serrors)
 # serrors
 
-serrors is a collection of three error implementations.
+serrors is a collection of three error implementations. `StackErr` provides call-stack information,
+based on ideas from https://github.com/pkg/errors . `Sentinel` creates immutable package-level
+sentinel errors, based on ideas from Dave Cheney. `StatusError` includes error category info alongside
+the source error.
 
 ## StackErr
 
