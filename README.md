@@ -1,3 +1,4 @@
+[![Go Report Card](https://goreportcard.com/badge/github.com/morningconsult/serrors)](https://goreportcard.com/report/github.com/morningconsult/serrors)
 # serrors
 
 serrors is a collection of three error implementations.
