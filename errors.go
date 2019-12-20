@@ -1,16 +1,3 @@
-// Copyright 2019 The Morning Consult, LLC or its affiliates. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License"). You may
-// not use this file except in compliance with the License. A copy of the
-// License is located at
-//
-//         https://www.apache.org/licenses/LICENSE-2.0
-//
-// or in the "license" file accompanying this file. This file is distributed
-// on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
-// express or implied. See the License for the specific language governing
-// permissions and limitations under the License.
-
 package serrors
 
 import (
@@ -89,22 +76,26 @@ func (se StatusError) Unwrap() error {
 // can be invoked more than once (runtime.Frames uses internal iteration and has no way to reset
 // the iterator).
 type StackTracer interface {
-	error
 	StackTrace() *runtime.Frames
 }
 
-// StackErr wraps an error with the stack location where the error occurred. Use the WithStack
-// function to create a StackErr. There can only be one StackErr in the error chain, ideally at
-// the root error location.
+// StackErr wraps an error with the stack location where the error occurred.
 type StackErr struct {
-	Err   error
-	trace []uintptr
+	Err         error
+	trace       []uintptr
+	stackTracer StackTracer
 }
 
-// StackTrace returns the call stack frames captures when the StackErr was instantiated. A new
-// instance of *runtime.Frames is created every time this method is run, since the struct tracks
+// StackTrace returns the call stack frames for the StackErr. If this was the first StackTracer on
+// the unwrap chain, it captures when the StackErr was instantiated. If there was an earlier StackTracer,
+// the se.stackTracer field is set, and the StackTrace() is returned from it.
+//
+//  A new instance of *runtime.Frames is created every time this method is run, since the struct tracks
 // its own offset and cannot be reused.
 func (se StackErr) StackTrace() *runtime.Frames {
+	if se.stackTracer != nil {
+		return se.stackTracer.StackTrace()
+	}
 	return runtime.CallersFrames(se.trace)
 }
 
@@ -129,41 +120,44 @@ func WithStack(err error) error {
 	if errors.As(err, &se) {
 		return err
 	}
-	out := buildStackErr()
-	out.Err = err
-	return out
+	return StackErr{
+		Err:   err,
+		trace: buildStackTrace(),
+	}
 }
 
-func buildStackErr() StackErr {
+func buildStackTrace() []uintptr {
 	pc := make([]uintptr, 20)
 	n := runtime.Callers(3, pc)
 	pc = pc[:n]
-	return StackErr{
-		trace: pc,
-	}
+	return pc
 }
 
 // New builds a StackErr out of a string
 func New(msg string) error {
-	out := buildStackErr()
-	out.Err = errors.New(msg)
-	return out
+	return StackErr{
+		Err:   errors.New(msg),
+		trace: buildStackTrace(),
+	}
 }
 
-// Errorf wraps the error returned by fmt.Errorf in a StackErr if there is no existing StackTracer chained
-// within the fmt.Errorf. If there is, the fmt.Errorf is returned directly.
+// Errorf wraps the error returned by fmt.Errorf in a StackErr. If there is an existing StackTracer
+// in the unwrap chain, its stack trace will be preserved.
 func Errorf(format string, vals ...interface{}) error {
-	out := WithStack(fmt.Errorf(format, vals...))
-	// it's possible that there was already a stack in an error in the fmt.Errorf.
-	// if there wasn't, strip off the top level of the frame pointer, because it will
-	// refer to Errorf instead the caller of Errorf.
-	if out, ok := (out).(StackErr); ok {
+	err := fmt.Errorf(format, vals...)
+	// it's possible that there was already a StackTracer in the unwrap chain in the fmt.Errorf.
+	// if so, use that stacktracker in the StackErr.
+	var st StackTracer
+	if errors.As(err, &st) {
 		return StackErr{
-			Err:   out.Err,
-			trace: out.trace[1:],
+			Err:         err,
+			stackTracer: st,
 		}
 	}
-	return out
+	return StackErr{
+		Err:   err,
+		trace: buildStackTrace(),
+	}
 }
 
 // Unwrap exposes the error wrapped by StackErr
@@ -183,7 +177,6 @@ func (se StackErr) Error() string {
 // Format controls the optional display of the stack trace. Use %+v to output the stack trace, use %v or %s to output
 // the wrapped error only, use %q to get a single-quoted character literal safely escaped with Go syntax for the wrapped
 // error.
-// Implementation borrowed from https://github.com/pkg/errors/blob/master/errors.go
 func (se StackErr) Format(s fmt.State, verb rune) {
 	switch verb {
 	case 'v':

@@ -18,10 +18,10 @@ factory functions.
 The `serrors.WithStack` function takes an existing error and wraps it in an
 `serrors.StackErr`. This is meant for adapting errors returned by third-party
 libraries. If an error is passed to `serrors.WithStack` that already has an error
-that implements the `serrors.StackTracer` interface, the error is returned. If a `nil`
-error is passed to `serrors.WithStack`, `nil` is returned. These two rules make it 
-possible to write the following code and not worry if there's already a stack trace 
-(or no error) stored in `err`:
+that implements the `serrors.StackTracer` interface in its unwrap chain, the 
+passed-in error is returned. If a `nil` error is passed to `serrors.WithStack`, 
+`nil` is returned. These two rules make it possible to write the following code and 
+not worry if there's already a stack trace (or no error) stored in `err`:
 
 ```go
 func DoSomething(input string) (string, error) {
@@ -44,8 +44,8 @@ func DoSomething(input string) (string, error) {
 }
 ```
 
-Like `serrors.WithStack`, there is no additional stack trace added if there's already 
-an error that implements the `serrors.StackTracer` interface in the unwrap chain.
+If there's an error in the unwrap chain that implements the `serrors.StackTracer` interface, 
+`serrors.Errorf` preserves the existing trace information.
 
 If you are creating a new error that's only a `string`, use `serrors.New`. This is a 
 drop-in replacement for `errors.New`:

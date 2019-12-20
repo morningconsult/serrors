@@ -1,16 +1,3 @@
-// Copyright 2019 The Morning Consult, LLC or its affiliates. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License"). You may
-// not use this file except in compliance with the License. A copy of the
-// License is located at
-//
-//         https://www.apache.org/licenses/LICENSE-2.0
-//
-// or in the "license" file accompanying this file. This file is distributed
-// on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
-// express or implied. See the License for the specific language governing
-// permissions and limitations under the License.
-
 package serrors_test
 
 import (
@@ -20,6 +7,7 @@ import (
 	"text/template"
 
 	"github.com/google/go-cmp/cmp"
+
 	"github.com/morningconsult/serrors"
 )
 
@@ -119,7 +107,7 @@ func TestStackErr(t *testing.T) {
 			name:         "detailed value",
 			formatString: "%+v",
 			expected: `new err
-github.com/morningconsult/serrors_test.TestStackErr (github.com/morningconsult/serrors_test/errors_test.go:96)
+github.com/morningconsult/serrors_test.TestStackErr (github.com/morningconsult/serrors_test/errors_test.go:84)
 testing.tRunner (testing/testing.go:909)
 runtime.goexit (runtime/asm_amd64.s:1357)`,
 		},
@@ -132,8 +120,8 @@ runtime.goexit (runtime/asm_amd64.s:1357)`,
 			}
 		})
 	}
-	expectedTrace := `["github.com/morningconsult/serrors_test.TestStackErr (github.com/morningconsult/serrors_test/errors_test.go:96)" "testing.tRunner (testing/testing.go:909)" "runtime.goexit (runtime/asm_amd64.s:1357)"]`
-	out, err := serrors.Trace(se.(serrors.StackTracer), serrors.StandardFormat)
+	expectedTrace := `["github.com/morningconsult/serrors_test.TestStackErr (github.com/morningconsult/serrors_test/errors_test.go:84)" "testing.tRunner (testing/testing.go:909)" "runtime.goexit (runtime/asm_amd64.s:1357)"]`
+	out, err := serrors.Trace(se, serrors.StandardFormat)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -173,7 +161,7 @@ func TestSentinel(t *testing.T) {
 func TestNew(t *testing.T) {
 	err := serrors.New("test message")
 	expected := `test message
-github.com/morningconsult/serrors_test.TestNew (github.com/morningconsult/serrors_test/errors_test.go:174)
+github.com/morningconsult/serrors_test.TestNew (github.com/morningconsult/serrors_test/errors_test.go:162)
 testing.tRunner (testing/testing.go:909)
 runtime.goexit (runtime/asm_amd64.s:1357)`
 	result := fmt.Sprintf("%+v", err)
@@ -194,7 +182,7 @@ func TestErrorf(t *testing.T) {
 			"This is a %s: %w",
 			[]interface{}{"error", errors.New("inner error")},
 			`This is a error: inner error
-github.com/morningconsult/serrors_test.TestErrorf.func1 (github.com/morningconsult/serrors_test/errors_test.go:219)
+github.com/morningconsult/serrors_test.TestErrorf.func1 (github.com/morningconsult/serrors_test/errors_test.go:210)
 testing.tRunner (testing/testing.go:909)
 runtime.goexit (runtime/asm_amd64.s:1357)`,
 		},
@@ -202,14 +190,17 @@ runtime.goexit (runtime/asm_amd64.s:1357)`,
 			"wrapped stack trace error",
 			"This is a %s: %w",
 			[]interface{}{"error", serrors.New("inner error")},
-			`This is a error: inner error`,
+			`This is a error: inner error
+github.com/morningconsult/serrors_test.TestErrorf (github.com/morningconsult/serrors_test/errors_test.go:192)
+testing.tRunner (testing/testing.go:909)
+runtime.goexit (runtime/asm_amd64.s:1357)`,
 		},
 		{
 			"no error",
 			"This is a %s",
 			[]interface{}{"error"},
 			`This is a error
-github.com/morningconsult/serrors_test.TestErrorf.func1 (github.com/morningconsult/serrors_test/errors_test.go:219)
+github.com/morningconsult/serrors_test.TestErrorf.func1 (github.com/morningconsult/serrors_test/errors_test.go:210)
 testing.tRunner (testing/testing.go:909)
 runtime.goexit (runtime/asm_amd64.s:1357)`,
 		},
@@ -240,7 +231,7 @@ func TestTrace(t *testing.T) {
 			"trace",
 			serrors.New("error"),
 			[]string{
-				"github.com/morningconsult/serrors_test.TestTrace (github.com/morningconsult/serrors_test/errors_test.go:241)",
+				"github.com/morningconsult/serrors_test.TestTrace (github.com/morningconsult/serrors_test/errors_test.go:232)",
 				"testing.tRunner (testing/testing.go:909)",
 				"runtime.goexit (runtime/asm_amd64.s:1357)",
 			},
@@ -249,7 +240,7 @@ func TestTrace(t *testing.T) {
 			"wrapped trace",
 			fmt.Errorf("outer: %w", serrors.New("inner")),
 			[]string{
-				"github.com/morningconsult/serrors_test.TestTrace (github.com/morningconsult/serrors_test/errors_test.go:250)",
+				"github.com/morningconsult/serrors_test.TestTrace (github.com/morningconsult/serrors_test/errors_test.go:241)",
 				"testing.tRunner (testing/testing.go:909)",
 				"runtime.goexit (runtime/asm_amd64.s:1357)",
 			},
@@ -306,50 +297,82 @@ func TestStackErrIs(t *testing.T) {
 	}
 }
 
-func TestNillStackErr(t *testing.T) {
-	err := serrors.WithStack(nil)
-	if err != nil {
-		t.Error("Expected nil error, got", err)
-	}
-}
-
-func TestStatusStrings(t *testing.T) {
+func TestErrorPrinting(t *testing.T) {
+	err := serrors.New("error message")
+	err2 := serrors.Errorf("wrapped %w", err)
 	data := []struct {
-		status   serrors.Status
+		name     string
+		err      error
+		format   string
 		expected string
 	}{
 		{
-			status:   serrors.Conflict,
-			expected: "Conflict",
+			name:     "v",
+			err:      err,
+			format:   "%v",
+			expected: `error message`,
 		},
 		{
-			status:   serrors.InvalidFormat,
-			expected: "InvalidFormat",
+			name:   "plus_v",
+			err:    err,
+			format: "%+v",
+			expected: `error message
+github.com/morningconsult/serrors_test.TestErrorPrinting (github.com/morningconsult/serrors_test/errors_test.go:301)
+testing.tRunner (testing/testing.go:909)
+runtime.goexit (runtime/asm_amd64.s:1357)`,
 		},
 		{
-			status:   serrors.Forbidden,
-			expected: "Forbidden",
+			name:     "s",
+			err:      err,
+			format:   "%s",
+			expected: `error message`,
 		},
 		{
-			status:   serrors.NotFound,
-			expected: "NotFound",
+			name:     "q",
+			err:      err,
+			format:   "%q",
+			expected: `"error message"`,
 		},
 		{
-			status:   serrors.Internal,
-			expected: "Internal",
+			name:     "proxy_v",
+			err:      err2,
+			format:   "%v",
+			expected: `wrapped error message`,
 		},
 		{
-			status:   serrors.NoAuth,
-			expected: "NoAuth",
+			name:   "proxy_plus_v",
+			err:    err2,
+			format: "%+v",
+			expected: `wrapped error message
+github.com/morningconsult/serrors_test.TestErrorPrinting (github.com/morningconsult/serrors_test/errors_test.go:301)
+testing.tRunner (testing/testing.go:909)
+runtime.goexit (runtime/asm_amd64.s:1357)`,
 		},
 		{
-			status:   800,
-			expected: "Unknown status: 800",
+			name:     "proxy_s",
+			err:      err2,
+			format:   "%s",
+			expected: `wrapped error message`,
+		},
+		{
+			name:     "proxy_q",
+			err:      err2,
+			format:   "%q",
+			expected: `"wrapped error message"`,
 		},
 	}
 	for _, v := range data {
-		if v.status.String() != v.expected {
-			t.Errorf("Expected `%s`, got `%s`", v.expected, v.status.String())
-		}
+		t.Run(v.name, func(t *testing.T) {
+			result := fmt.Sprintf(v.format, v.err)
+			if result != v.expected {
+				t.Errorf("Expected `%s`, got `%s`", v.expected, result)
+			}
+		})
+	}
+}
+
+func TestWithStackNil(t *testing.T) {
+	if serrors.WithStack(nil) != nil {
+		t.Error("Got non-nil for nil passed to WithStack")
 	}
 }
