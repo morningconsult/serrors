@@ -176,60 +176,40 @@ The only limitation to sentinels is that the string that's being typecast needs 
 are assigning it to a `const`. You can, of course, use `serrors.Sentinel` with a `var`, but that provides no additional
 functionality over an `errors.New`.
 
-## StatusError
+## Status Errors
 
-Not all errors are equal; different errors mean different things. Some indicate a bug in the server, while others indicate
-bad data being passed in. HTTP status codes are used to indicate this at the web API tier, but there isn't an easy
-way to pass this information back to that layer.
+Not all errors are equal; different errors mean different things. Some indicate
+a bug in the server, while others indicate bad data being passed in. HTTP
+status codes are used to indicate this at the web API tier, but there isn't an
+easy way to pass this information back to that layer.
 
-The `serrors.StatusError` proves a wrapper to decorate your errors with status information. Rather than include a
-dependency on the `net/http` package, it defines its own statuses.
+The `serrors` package includes three helpers to attach a status code directly
+to an error:
 
-The following statuses are defined in `serrors`:
+- `serrors.WithStatus` takes an existing and attaches a status code.
+- `serrors.NewStatusError` creates a new error from a string.
+- `serrors.NewStatusErrorf` creates an error with `fmt.Errorf` semantics.
 
-```go
-// Status is the type used to represent error types
-type Status int
+For convenience, all helpers wrap errors with stack traces as well.
 
-// The error type constants for errors relating to a particular status.
-const (
-    _ Status = iota
-    // InvalidFormat represents badly formatted input errors.
-    InvalidFormat
-    // Forbidden represents errors where the action is not allowed.
-    Forbidden
-    // NotFound represents missing or unauthorized data errors.
-    NotFound
-    // Conflict represents errors from a conflicting application state.
-    Conflict
-    // Internal represents bugs in the application.
-    Internal
-    // NoAuth represents errors where the request is missing authentication information
-    NoAuth
-)
-```
+The API allows an `int` to be passed in as a status code. By convention, these
+should use HTTP status codes exclusively. Any other status codes run the risk
+of violating expectations across application boundaries.
 
-By convention, a `Status` with a value of `0` is not valid; it is an error to see one in your program.
-
-An `serrors.StatusError` has two fields, the Status for the error, and the error itself. You can combine the
-`serrors.StatusError` with an `serrors.StackErr`:
+In order to retrieve the status code from an error, you can use `errors.As`:
 
 ```go
-func DoSomething(input string) (string, error) {
-    if input == "" {
-        return "", serrors.StackError {
-            Status: serrors.InvalidFormat,
-            Err: serrors.New("cannot supply an empty string to DoSomething"),
-        }
+func HandleRequest(w http.ResponseWriter, r *http.Request) {
+    err := ThingToCall()
+    var sc serrors.StatusCoder
+    switch {
+    case errors.As(err, &sc):
+        w.WriteHeader(sc.StatusCode())
+    case err != nil:
+        w.WriteHeader(http.StatusInternalServerError)
+    default:
+        w.WriteHeader(http.StatusOK)
     }
-    result, err := ThingToCall(input)
-    if err != nil {
-        return "", serrors.StackError {
-            Status: serrors.Internal,
-            Err: serrors.Errorf("DoSomething failed on call to ThingToCall: %w", err)
-        }
-    }
-    return result, nil
 }
 ```
 

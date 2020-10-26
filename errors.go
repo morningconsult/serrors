@@ -11,22 +11,32 @@ import (
 )
 
 // Status is the type used to represent error types
+//
+// Deprecated: This layer of abstraction provided more overhead than value.
+// When using the new status error API, the HTTP status codes should be used
+// directly.
 type Status int
 
 // The error type constants for errors relating to a particular status.
 const (
 	_ Status = iota
 	// InvalidFormat represents badly formatted input errors.
+	// Deprecated: Use http.StatusBadRequest
 	InvalidFormat
 	// Forbidden represents errors where the action is not allowed.
+	// Deprecated: Use http.StatusForbidden
 	Forbidden
 	// NotFound represents missing or unauthorized data errors.
+	// Deprecated: Use http.StatusNotFound
 	NotFound
 	// Conflict represents errors from a conflicting application state.
+	// Deprecated: Use http.StatusConflict
 	Conflict
 	// Internal represents bugs in the application.
+	// Deprecated: Use http.StatusInternalServerError
 	Internal
 	// NoAuth represents errors where the request is missing authentication information
+	// Deprecated: Use http.StatusUnauthorized
 	NoAuth
 )
 
@@ -52,6 +62,11 @@ func (s Status) String() string {
 // StatusError attaches a status to an error. This is used to differentiate between different kinds of failures:
 // those caused by badly formatted input, those caused by requests for missing or unauthorized data, and those
 // caused by bugs in the code
+//
+// Deprecated: The lack of stack-trace information, overhead of serrors-
+// specific statuses, and requirement to use a struct type rather than
+// interface with errors.Is and errors.As made this difficult to use. Instead,
+// prefer NewStatusError or WithStatus for constructing new errors.
 type StatusError struct {
 	Status Status
 	Err    error
@@ -146,7 +161,7 @@ func New(msg string) error {
 func Errorf(format string, vals ...interface{}) error {
 	err := fmt.Errorf(format, vals...)
 	// it's possible that there was already a StackTracer in the unwrap chain in the fmt.Errorf.
-	// if so, use that stacktracker in the StackErr.
+	// if so, use that stacktracer in the StackErr.
 	var st StackTracer
 	if errors.As(err, &st) {
 		return StackErr{
