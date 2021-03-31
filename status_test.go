@@ -63,10 +63,7 @@ func TestNewStatusErrorf_wraps_stack_tracer(t *testing.T) {
 		t.Errorf("want message %q, got %q", wantMsg, msg)
 	}
 
-	wantVerbose := `wrapping: oh no
-github.com/morningconsult/serrors_test.TestNewStatusErrorf_wraps_stack_tracer (github.com/morningconsult/serrors_test/status_test.go:49)
-testing.tRunner (testing/testing.go:909)
-runtime.goexit (runtime/asm_amd64.s:1357)`
+	wantVerbose := expectedStackTrace("wrapping: oh no", 49)
 	got := fmt.Sprintf("%+v", err)
 	if diff := cmp.Diff(wantVerbose, got); diff != "" {
 		t.Errorf("results differ (-want +got):\n%s", diff)
@@ -77,10 +74,7 @@ func TestWithStatus(t *testing.T) {
 	err := serrors.New("test message")
 	err = serrors.WithStatus(200, err)
 
-	expected := `test message
-github.com/morningconsult/serrors_test.TestWithStatus (github.com/morningconsult/serrors_test/status_test.go:77)
-testing.tRunner (testing/testing.go:909)
-runtime.goexit (runtime/asm_amd64.s:1357)`
+	expected := expectedStackTrace("test message", 74)
 	result := fmt.Sprintf("%+v", err)
 	if diff := cmp.Diff(expected, result); diff != "" {
 		t.Errorf("results differ (-want +got):\n%s", diff)

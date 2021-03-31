@@ -3,6 +3,8 @@ package serrors_test
 import (
 	"errors"
 	"fmt"
+	"runtime"
+	"strings"
 	"testing"
 	"text/template"
 
@@ -106,10 +108,7 @@ func TestStackErr(t *testing.T) {
 		{
 			name:         "detailed value",
 			formatString: "%+v",
-			expected: `new err
-github.com/morningconsult/serrors_test.TestStackErr (github.com/morningconsult/serrors_test/errors_test.go:84)
-testing.tRunner (testing/testing.go:909)
-runtime.goexit (runtime/asm_amd64.s:1357)`,
+			expected:     expectedStackTrace("new err", 86),
 		},
 	}
 	for _, v := range data {
@@ -120,13 +119,14 @@ runtime.goexit (runtime/asm_amd64.s:1357)`,
 			}
 		})
 	}
-	expectedTrace := `["github.com/morningconsult/serrors_test.TestStackErr (github.com/morningconsult/serrors_test/errors_test.go:84)" "testing.tRunner (testing/testing.go:909)" "runtime.goexit (runtime/asm_amd64.s:1357)"]`
-	out, err := serrors.Trace(se, serrors.StandardFormat)
+	expectedTrace := strings.Split(expectedStackTrace("", 86), "\n")
+
+	actualTrace, err := serrors.Trace(se, serrors.StandardFormat)
 	if err != nil {
 		t.Fatal(err)
 	}
-	actualTrace := fmt.Sprintf("%q", out)
-	if expectedTrace != actualTrace {
+
+	if diff := cmp.Diff(expectedTrace, actualTrace); diff != "" {
 		t.Errorf("Expected `%s`, got `%s`", expectedTrace, actualTrace)
 	}
 
@@ -160,10 +160,7 @@ func TestSentinel(t *testing.T) {
 
 func TestNew(t *testing.T) {
 	err := serrors.New("test message")
-	expected := `test message
-github.com/morningconsult/serrors_test.TestNew (github.com/morningconsult/serrors_test/errors_test.go:162)
-testing.tRunner (testing/testing.go:909)
-runtime.goexit (runtime/asm_amd64.s:1357)`
+	expected := expectedStackTrace("test message", 162)
 	result := fmt.Sprintf("%+v", err)
 	if expected != result {
 		t.Errorf("expected `%s`, got `%s`", expected, result)
@@ -181,33 +178,26 @@ func TestErrorf(t *testing.T) {
 			"wrapped non-stack trace error",
 			"This is a %s: %w",
 			[]interface{}{"error", errors.New("inner error")},
-			`This is a error: inner error
-github.com/morningconsult/serrors_test.TestErrorf.func1 (github.com/morningconsult/serrors_test/errors_test.go:210)
-testing.tRunner (testing/testing.go:909)
-runtime.goexit (runtime/asm_amd64.s:1357)`,
+			expectedStackTrace("This is a error: inner error", 199),
 		},
 		{
 			"wrapped stack trace error",
 			"This is a %s: %w",
 			[]interface{}{"error", serrors.New("inner error")},
-			`This is a error: inner error
-github.com/morningconsult/serrors_test.TestErrorf (github.com/morningconsult/serrors_test/errors_test.go:192)
-testing.tRunner (testing/testing.go:909)
-runtime.goexit (runtime/asm_amd64.s:1357)`,
+			expectedStackTrace("This is a error: inner error", 186),
 		},
 		{
 			"no error",
 			"This is a %s",
 			[]interface{}{"error"},
-			`This is a error
-github.com/morningconsult/serrors_test.TestErrorf.func1 (github.com/morningconsult/serrors_test/errors_test.go:210)
-testing.tRunner (testing/testing.go:909)
-runtime.goexit (runtime/asm_amd64.s:1357)`,
+			expectedStackTrace("This is a error", 199),
 		},
 	}
 	for _, v := range data {
+		// produce the error outside the anon function below so we get the test
+		// as the caller and not test.func1
+		errOuter := serrors.Errorf(v.formatString, v.values...)
 		t.Run(v.name, func(t *testing.T) {
-			errOuter := serrors.Errorf(v.formatString, v.values...)
 			result := fmt.Sprintf("%+v", errOuter)
 			if v.expected != result {
 				t.Errorf("expected `%s`, got `%s`", v.expected, result)
@@ -220,30 +210,22 @@ func TestTrace(t *testing.T) {
 	data := []struct {
 		name     string
 		inErr    error
-		expected []string
+		expected string
 	}{
 		{
 			"no trace",
 			errors.New("error"),
-			nil,
+			"",
 		},
 		{
 			"trace",
 			serrors.New("error"),
-			[]string{
-				"github.com/morningconsult/serrors_test.TestTrace (github.com/morningconsult/serrors_test/errors_test.go:232)",
-				"testing.tRunner (testing/testing.go:909)",
-				"runtime.goexit (runtime/asm_amd64.s:1357)",
-			},
+			expectedStackTrace("", 222),
 		},
 		{
 			"wrapped trace",
 			fmt.Errorf("outer: %w", serrors.New("inner")),
-			[]string{
-				"github.com/morningconsult/serrors_test.TestTrace (github.com/morningconsult/serrors_test/errors_test.go:241)",
-				"testing.tRunner (testing/testing.go:909)",
-				"runtime.goexit (runtime/asm_amd64.s:1357)",
-			},
+			expectedStackTrace("", 227),
 		},
 	}
 	for _, v := range data {
@@ -252,7 +234,7 @@ func TestTrace(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if diff := cmp.Diff(v.expected, lines); diff != "" {
+			if diff := cmp.Diff(v.expected, strings.Join(lines, "\n")); diff != "" {
 				t.Error(diff)
 			}
 		})
@@ -313,13 +295,10 @@ func TestErrorPrinting(t *testing.T) {
 			expected: `error message`,
 		},
 		{
-			name:   "plus_v",
-			err:    err,
-			format: "%+v",
-			expected: `error message
-github.com/morningconsult/serrors_test.TestErrorPrinting (github.com/morningconsult/serrors_test/errors_test.go:301)
-testing.tRunner (testing/testing.go:909)
-runtime.goexit (runtime/asm_amd64.s:1357)`,
+			name:     "plus_v",
+			err:      err,
+			format:   "%+v",
+			expected: expectedStackTrace("error message", 283),
 		},
 		{
 			name:     "s",
@@ -340,13 +319,10 @@ runtime.goexit (runtime/asm_amd64.s:1357)`,
 			expected: `wrapped error message`,
 		},
 		{
-			name:   "proxy_plus_v",
-			err:    err2,
-			format: "%+v",
-			expected: `wrapped error message
-github.com/morningconsult/serrors_test.TestErrorPrinting (github.com/morningconsult/serrors_test/errors_test.go:301)
-testing.tRunner (testing/testing.go:909)
-runtime.goexit (runtime/asm_amd64.s:1357)`,
+			name:     "proxy_plus_v",
+			err:      err2,
+			format:   "%+v",
+			expected: expectedStackTrace("wrapped error message", 283),
 		},
 		{
 			name:     "proxy_s",
@@ -375,4 +351,36 @@ func TestWithStackNil(t *testing.T) {
 	if serrors.WithStack(nil) != nil {
 		t.Error("Got non-nil for nil passed to WithStack")
 	}
+}
+
+// expectedStackTrace formats a stack trace message based on the message and provided line
+// for the test, using the actual outside callers of the test. The test has to pass in
+// the expected line number, as the error will not have occurred on the same line
+// as the call to this function.
+func expectedStackTrace(message string, expectedLine int) string {
+	pcs := make([]uintptr, 100)
+	// start at 2, skipping runtime.Callers and this function
+	n := runtime.Callers(2, pcs)
+	frames := runtime.CallersFrames(pcs[:n])
+
+	str := strings.Builder{}
+	if message != "" {
+		fmt.Fprintln(&str, message)
+	}
+
+	frame, _ := frames.Next()
+	frame.Line = expectedLine
+	_ = serrors.StandardFormat.Execute(&str, frame)
+	str.WriteByte('\n')
+
+	for {
+		frame, more := frames.Next()
+		_ = serrors.StandardFormat.Execute(&str, frame)
+
+		if !more {
+			break
+		}
+		str.WriteByte('\n')
+	}
+	return str.String()
 }
