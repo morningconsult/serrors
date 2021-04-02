@@ -21,22 +21,22 @@ type Status int
 const (
 	_ Status = iota
 	// InvalidFormat represents badly formatted input errors.
-	// Deprecated: Use http.StatusBadRequest
+	// Deprecated: Use http.StatusBadRequest instead.
 	InvalidFormat
 	// Forbidden represents errors where the action is not allowed.
-	// Deprecated: Use http.StatusForbidden
+	// Deprecated: Use http.StatusForbidden instead.
 	Forbidden
 	// NotFound represents missing or unauthorized data errors.
-	// Deprecated: Use http.StatusNotFound
+	// Deprecated: Use http.StatusNotFound instead.
 	NotFound
 	// Conflict represents errors from a conflicting application state.
-	// Deprecated: Use http.StatusConflict
+	// Deprecated: Use http.StatusConflict instead.
 	Conflict
 	// Internal represents bugs in the application.
-	// Deprecated: Use http.StatusInternalServerError
+	// Deprecated: Use http.StatusInternalServerError instead.
 	Internal
 	// NoAuth represents errors where the request is missing authentication information
-	// Deprecated: Use http.StatusUnauthorized
+	// Deprecated: Use http.StatusUnauthorized instead.
 	NoAuth
 )
 
@@ -72,7 +72,7 @@ type StatusError struct {
 	Err    error
 }
 
-// Error implements the error interface for StatusError
+// Error implements the error interface for StatusError.
 func (se StatusError) Error() string {
 	if se.Err == nil {
 		return ""
@@ -148,7 +148,7 @@ func buildStackTrace() []uintptr {
 	return pc
 }
 
-// New builds a StackErr out of a string
+// New builds a StackErr out of a string.
 func New(msg string) error {
 	return StackErr{
 		Err:   errors.New(msg),
@@ -175,13 +175,13 @@ func Errorf(format string, vals ...interface{}) error {
 	}
 }
 
-// Unwrap exposes the error wrapped by StackErr
+// Unwrap exposes the error wrapped by StackErr.
 func (se StackErr) Unwrap() error {
 	return se.Err
 }
 
 // Error is the marker interface for an error, it returns the wrapped error or an empty string if there is no
-// wrapped error
+// wrapped error.
 func (se StackErr) Error() string {
 	if se.Err == nil {
 		return ""
@@ -210,7 +210,7 @@ func (se StackErr) Format(s fmt.State, verb rune) {
 }
 
 // StandardFormat is the default template used to convert a *runtime.Frame to a string. Each entry is formatted as
-// "FUNCTION_NAME (FILE_NAME:LINE_NUMBER)"
+// "FUNCTION_NAME (FILE_NAME:LINE_NUMBER)".
 var StandardFormat = template.Must(template.New("standardFormat").Parse("{{.Function}} ({{.File}}:{{.Line}})"))
 
 // Trace returns the stack trace information as a slice of strings formatted using the provided Go template. The valid
