@@ -41,10 +41,10 @@ func TestErrors(t *testing.T) {
 			name: "simple",
 			err: serrors.StatusError{
 				Status: serrors.NotFound,
-				Err:    serrors.New("This is a message"),
+				Err:    serrors.New("this is a message"),
 			},
 			status:  serrors.NotFound,
-			message: "This is a message",
+			message: "this is a message",
 		},
 		{
 			name: "missing error",
@@ -57,12 +57,12 @@ func TestErrors(t *testing.T) {
 		},
 		{
 			name: "wrapped",
-			err: fmt.Errorf("Wrapped something: %w", serrors.StatusError{
+			err: fmt.Errorf("wrapped something: %w", serrors.StatusError{
 				Status: serrors.InvalidFormat,
-				Err:    serrors.New("Original Error"),
+				Err:    serrors.New("original Error"),
 			}),
 			status:  serrors.InvalidFormat,
-			message: "Wrapped something: Original Error",
+			message: "wrapped something: original Error",
 		},
 	}
 	for _, v := range data {
