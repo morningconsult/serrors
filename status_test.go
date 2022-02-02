@@ -3,6 +3,7 @@ package serrors_test
 import (
 	"errors"
 	"fmt"
+	"net/http"
 	"testing"
 
 	"github.com/morningconsult/serrors"
@@ -12,7 +13,8 @@ import (
 
 func TestNewStatusError(t *testing.T) {
 	code := 400
-	err := serrors.NewStatusError(code, "oh no")
+	msg := "oh no"
+	err := serrors.NewStatusError(code, msg)
 
 	var sc serrors.StatusCoder
 	if !errors.As(err, &sc) {
@@ -21,6 +23,10 @@ func TestNewStatusError(t *testing.T) {
 
 	if got := sc.StatusCode(); got != code {
 		t.Errorf("want code %d, got %d", code, got)
+	}
+
+	if err.Error() != msg {
+		t.Errorf("want error %q, got %q", msg, err.Error())
 	}
 }
 
@@ -63,7 +69,7 @@ func TestNewStatusErrorf_wraps_stack_tracer(t *testing.T) {
 		t.Errorf("want message %q, got %q", wantMsg, msg)
 	}
 
-	wantVerbose := expectedStackTrace("wrapping: oh no", 49)
+	wantVerbose := expectedStackTrace("wrapping: oh no", 55)
 	got := fmt.Sprintf("%+v", err)
 	if diff := cmp.Diff(wantVerbose, got); diff != "" {
 		t.Errorf("results differ (-want +got):\n%s", diff)
@@ -74,7 +80,7 @@ func TestWithStatus(t *testing.T) {
 	err := serrors.New("test message")
 	err = serrors.WithStatus(200, err)
 
-	expected := expectedStackTrace("test message", 74)
+	expected := expectedStackTrace("test message", 80)
 	result := fmt.Sprintf("%+v", err)
 	if diff := cmp.Diff(expected, result); diff != "" {
 		t.Errorf("results differ (-want +got):\n%s", diff)
@@ -89,6 +95,41 @@ func TestWithStatus_nil(t *testing.T) {
 		}
 	}()
 	serrors.WithStatus(200, nil) // nolint: errcheck
+}
+
+func TestNewFromStatus(t *testing.T) {
+	tests := []struct {
+		status   int
+		wantText string
+	}{
+		{http.StatusOK, http.StatusText(http.StatusOK)},
+		{http.StatusTeapot, http.StatusText(http.StatusTeapot)},
+		{-1, "Unknown Status Error"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.wantText, func(t *testing.T) {
+			err := serrors.NewFromStatus(tt.status)
+			var sc serrors.StatusCoder
+			if !errors.As(err, &sc) {
+				t.Fatalf("want status error, got %T", err)
+			}
+
+			if sc.StatusCode() != tt.status {
+				t.Errorf("want status %d, got %d", tt.status, sc.StatusCode())
+			}
+
+			if err.Error() != tt.wantText {
+				t.Errorf("want error %q, got %q", tt.wantText, err.Error())
+			}
+
+			expected := expectedStackTrace(tt.wantText, 112)
+			result := fmt.Sprintf("%+v", err)
+			if diff := cmp.Diff(expected, result); diff != "" {
+				t.Errorf("results differ (-want +got):\n%s", diff)
+			}
+		})
+	}
 }
 
 type messageError struct{}

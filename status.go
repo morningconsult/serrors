@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 )
 
 // StatusCoder represents something that returns a status code.
@@ -77,6 +78,23 @@ func WithStatus(code int, err error) error {
 		HTTPStatusCode: code,
 		Err: &StackErr{
 			Err:   err,
+			trace: buildStackTrace(),
+		},
+	}
+}
+
+// NewFromStatus creates a new StatusError with the given status code and the
+// HTTP status text from the standard library.
+func NewFromStatus(code int) error {
+	msg := http.StatusText(code)
+	if msg == "" {
+		msg = "Unknown Status Error"
+	}
+
+	return statusError{
+		HTTPStatusCode: code,
+		Err: &StackErr{
+			Err:   errors.New(msg),
 			trace: buildStackTrace(),
 		},
 	}
