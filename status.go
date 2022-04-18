@@ -24,8 +24,8 @@ var _ StatusCoder = statusError{}
 func NewStatusError(code int, msg string) error {
 	return statusError{
 		HTTPStatusCode: code,
-		Err: &StackErr{
-			Err:   errors.New(msg),
+		Err: &stackErr{
+			err:   errors.New(msg),
 			trace: buildStackTrace(),
 		},
 	}
@@ -43,8 +43,8 @@ func NewStatusErrorf(code int, format string, a ...interface{}) error {
 	if errors.As(err, &st) {
 		return statusError{
 			HTTPStatusCode: code,
-			Err: &StackErr{
-				Err:         err,
+			Err: &stackErr{
+				err:         err,
 				stackTracer: st,
 			},
 		}
@@ -52,8 +52,8 @@ func NewStatusErrorf(code int, format string, a ...interface{}) error {
 
 	return statusError{
 		HTTPStatusCode: code,
-		Err: &StackErr{
-			Err:   err,
+		Err: &stackErr{
+			err:   err,
 			trace: buildStackTrace(),
 		},
 	}
@@ -76,8 +76,8 @@ func WithStatus(code int, err error) error {
 
 	return statusError{
 		HTTPStatusCode: code,
-		Err: &StackErr{
-			Err:   err,
+		Err: &stackErr{
+			err:   err,
 			trace: buildStackTrace(),
 		},
 	}
@@ -93,8 +93,8 @@ func NewFromStatus(code int) error {
 
 	return statusError{
 		HTTPStatusCode: code,
-		Err: &StackErr{
-			Err:   errors.New(msg),
+		Err: &stackErr{
+			err:   errors.New(msg),
 			trace: buildStackTrace(),
 		},
 	}
