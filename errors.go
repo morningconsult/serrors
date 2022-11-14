@@ -10,81 +10,6 @@ import (
 	"text/template"
 )
 
-// Status is the type used to represent error types
-//
-// Deprecated: This layer of abstraction provided more overhead than value.
-// When using the new status error API, the HTTP status codes should be used
-// directly.
-type Status int
-
-// The error type constants for errors relating to a particular status.
-const (
-	_ Status = iota
-	// InvalidFormat represents badly formatted input errors.
-	// Deprecated: Use http.StatusBadRequest instead.
-	InvalidFormat
-	// Forbidden represents errors where the action is not allowed.
-	// Deprecated: Use http.StatusForbidden instead.
-	Forbidden
-	// NotFound represents missing or unauthorized data errors.
-	// Deprecated: Use http.StatusNotFound instead.
-	NotFound
-	// Conflict represents errors from a conflicting application state.
-	// Deprecated: Use http.StatusConflict instead.
-	Conflict
-	// Internal represents bugs in the application.
-	// Deprecated: Use http.StatusInternalServerError instead.
-	Internal
-	// NoAuth represents errors where the request is missing authentication information
-	// Deprecated: Use http.StatusUnauthorized instead.
-	NoAuth
-)
-
-func (s Status) String() string {
-	switch s {
-	case InvalidFormat:
-		return "InvalidFormat"
-	case Forbidden:
-		return "Forbidden"
-	case NotFound:
-		return "NotFound"
-	case Conflict:
-		return "Conflict"
-	case Internal:
-		return "Internal"
-	case NoAuth:
-		return "NoAuth"
-	default:
-		return fmt.Sprintf("Unknown status: %d", s)
-	}
-}
-
-// StatusError attaches a status to an error. This is used to differentiate between different kinds of failures:
-// those caused by badly formatted input, those caused by requests for missing or unauthorized data, and those
-// caused by bugs in the code
-//
-// Deprecated: The lack of stack-trace information, overhead of serrors-
-// specific statuses, and requirement to use a struct type rather than
-// interface with errors.Is and errors.As made this difficult to use. Instead,
-// prefer NewStatusError or WithStatus for constructing new errors.
-type StatusError struct {
-	Status Status
-	Err    error
-}
-
-// Error implements the error interface for StatusError.
-func (se StatusError) Error() string {
-	if se.Err == nil {
-		return ""
-	}
-	return se.Err.Error()
-}
-
-// Unwrap implements the Wrapper interface for StatusError, allowing it to work with Is and As.
-func (se StatusError) Unwrap() error {
-	return se.Err
-}
-
 // StackTracer defines an interface that's met by an error that returns a stacktrace. This is
 // intended to be used by errors that capture the stacktrace to the source of the error. Each
 // invocation of StackTrace() must return a new instance of *runtime.Frames, so that this method
@@ -94,9 +19,9 @@ type StackTracer interface {
 	StackTrace() *runtime.Frames
 }
 
-// StackErr wraps an error with the stack location where the error occurred.
-type StackErr struct {
-	Err         error
+// stackErr wraps an error with the stack location where the error occurred.
+type stackErr struct {
+	err         error
 	trace       []uintptr
 	stackTracer StackTracer
 }
@@ -105,9 +30,9 @@ type StackErr struct {
 // the unwrap chain, it captures when the StackErr was instantiated. If there was an earlier StackTracer,
 // the se.stackTracer field is set, and the StackTrace() is returned from it.
 //
-//  A new instance of *runtime.Frames is created every time this method is run, since the struct tracks
+// A new instance of *runtime.Frames is created every time this method is run, since the struct tracks
 // its own offset and cannot be reused.
-func (se StackErr) StackTrace() *runtime.Frames {
+func (se stackErr) StackTrace() *runtime.Frames {
 	if se.stackTracer != nil {
 		return se.stackTracer.StackTrace()
 	}
@@ -116,11 +41,11 @@ func (se StackErr) StackTrace() *runtime.Frames {
 
 // Is implementation to properly handle two StackErr instances being compared to each other using errors.Is.
 // Both StackErr instances need to be unwrapped because the trace slice field makes the StackErr not comparable.
-func (se StackErr) Is(err error) bool {
-	if err, ok := err.(StackErr); ok {
-		return errors.Is(se.Err, err.Err)
+func (se stackErr) Is(err error) bool {
+	if err, ok := err.(stackErr); ok {
+		return errors.Is(se.err, err.err)
 	}
-	return errors.Is(se.Err, err)
+	return errors.Is(se.err, err)
 }
 
 // WithStack takes in an error and returns an error wrapped in a StackErr with the location where
@@ -135,8 +60,8 @@ func WithStack(err error) error {
 	if errors.As(err, &se) {
 		return err
 	}
-	return StackErr{
-		Err:   err,
+	return stackErr{
+		err:   err,
 		trace: buildStackTrace(),
 	}
 }
@@ -150,8 +75,8 @@ func buildStackTrace() []uintptr {
 
 // New builds a StackErr out of a string.
 func New(msg string) error {
-	return StackErr{
-		Err:   errors.New(msg),
+	return stackErr{
+		err:   errors.New(msg),
 		trace: buildStackTrace(),
 	}
 }
@@ -164,54 +89,63 @@ func Errorf(format string, vals ...interface{}) error {
 	// if so, use that stacktracer in the StackErr.
 	var st StackTracer
 	if errors.As(err, &st) {
-		return StackErr{
-			Err:         err,
+		return stackErr{
+			err:         err,
 			stackTracer: st,
 		}
 	}
-	return StackErr{
-		Err:   err,
+	return stackErr{
+		err:   err,
 		trace: buildStackTrace(),
 	}
 }
 
 // Unwrap exposes the error wrapped by StackErr.
-func (se StackErr) Unwrap() error {
-	return se.Err
+func (se stackErr) Unwrap() error {
+	return se.err
 }
 
 // Error is the marker interface for an error, it returns the wrapped error or an empty string if there is no
 // wrapped error.
-func (se StackErr) Error() string {
-	if se.Err == nil {
+func (se stackErr) Error() string {
+	if se.err == nil {
 		return ""
 	}
-	return se.Err.Error()
+	return se.err.Error()
 }
 
 // Format controls the optional display of the stack trace. Use %+v to output the stack trace, use %v or %s to output
 // the wrapped error only, use %q to get a single-quoted character literal safely escaped with Go syntax for the wrapped
 // error.
-func (se StackErr) Format(s fmt.State, verb rune) {
+func (se stackErr) Format(s fmt.State, verb rune) {
 	switch verb {
 	case 'v':
 		if s.Flag('+') {
 			fmt.Fprintf(s, "%+v\n", se.Unwrap())
-			trace, _ := Trace(se, StandardFormat)
-			fmt.Fprintf(s, "%s", strings.Join(trace, "\n"))
+			trace, _ := Trace(se, PanicFormat)
+			io.WriteString(s, strings.Join(trace, "\n")) //nolint:errcheck
 			return
 		}
-		io.WriteString(s, se.Error()) // nolint: errcheck
+		io.WriteString(s, se.Error()) //nolint:errcheck
 	case 's':
-		io.WriteString(s, se.Error()) // nolint: errcheck
+		io.WriteString(s, se.Error()) //nolint:errcheck
 	case 'q':
 		fmt.Fprintf(s, "%q", se.Error())
 	}
 }
 
-// StandardFormat is the default template used to convert a *runtime.Frame to a string. Each entry is formatted as
-// "FUNCTION_NAME (FILE_NAME:LINE_NUMBER)".
+// StandardFormat is a one-line template used to convert a *runtime.Frame to a
+// string. Each entry is formatted as:
+//
+//	FUNCTION_NAME (FILE_NAME:LINE_NUMBER)
 var StandardFormat = template.Must(template.New("standardFormat").Parse("{{.Function}} ({{.File}}:{{.Line}})"))
+
+// PanicFormat is a template resembling the output of a `panic` used to convert
+// a *runtime.Frame to a string. Each entry is formatted as:
+//
+//	FUNCTION_NAME
+//		FILE_NAME:LINE_NUMBER
+var PanicFormat = template.Must(template.New("standardFormat").Parse("{{.Function}}\n\t{{.File}}:{{.Line}}"))
 
 // Trace returns the stack trace information as a slice of strings formatted using the provided Go template. The valid
 // fields in the template are Function, File, and Line. See StandardFormat for an example.
