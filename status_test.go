@@ -69,8 +69,8 @@ func TestNewStatusErrorf_wraps_stack_tracer(t *testing.T) {
 		t.Errorf("want message %q, got %q", wantMsg, msg)
 	}
 
-	wantVerbose := expectedStackTrace("wrapping: oh no", 55)
-	got := fmt.Sprintf("%+v", err)
+	wantVerbose := traceLine(55)
+	got := traceError(t, err)
 	if diff := cmp.Diff(wantVerbose, got); diff != "" {
 		t.Errorf("results differ (-want +got):\n%s", diff)
 	}
@@ -80,9 +80,9 @@ func TestWithStatus(t *testing.T) {
 	err := serrors.New("test message")
 	err = serrors.WithStatus(200, err)
 
-	expected := expectedStackTrace("test message", 80)
-	result := fmt.Sprintf("%+v", err)
-	if diff := cmp.Diff(expected, result); diff != "" {
+	got := traceError(t, err)
+	want := traceLine(80)
+	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("results differ (-want +got):\n%s", diff)
 	}
 }
@@ -123,28 +123,12 @@ func TestNewFromStatus(t *testing.T) {
 				t.Errorf("want error %q, got %q", tt.wantText, err.Error())
 			}
 
-			expected := expectedStackTrace(tt.wantText, 112)
-			result := fmt.Sprintf("%+v", err)
-			if diff := cmp.Diff(expected, result); diff != "" {
+			got := traceError(t, err)
+			want := traceLine(112)
+			if diff := cmp.Diff(want, got); diff != "" {
 				t.Errorf("results differ (-want +got):\n%s", diff)
 			}
 		})
-	}
-}
-
-type messageError struct{}
-
-func (e messageError) Error() string {
-	return "foo"
-}
-
-func Test_statusError_Format(t *testing.T) {
-	err := serrors.WithStatus(400, messageError{})
-
-	want := "foo"
-	got := fmt.Sprintf("%s", err)
-	if want != got {
-		t.Errorf("want message %q, got %q", want, got)
 	}
 }
 

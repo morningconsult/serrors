@@ -3,7 +3,6 @@ package serrors
 import (
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 )
 
@@ -107,19 +106,6 @@ func (s statusError) Error() string {
 		return ""
 	}
 	return s.Err.Error()
-}
-
-// Format uses the underlying formatter for the error, if one exists. This
-// allows us to preserve the behavior of the underlying error if the verb
-// changes the way it is formatted.
-func (s statusError) Format(f fmt.State, verb rune) {
-	var formatter fmt.Formatter
-	if errors.As(s.Err, &formatter) {
-		formatter.Format(f, verb)
-		return
-	}
-
-	io.WriteString(f, s.Error()) // nolint: errcheck
 }
 
 // Unwrap returns the underlying error.

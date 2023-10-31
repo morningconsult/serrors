@@ -4,9 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"io"
 	"runtime"
-	"strings"
 	"text/template"
 )
 
@@ -112,26 +110,6 @@ func (se stackErr) Error() string {
 		return ""
 	}
 	return se.err.Error()
-}
-
-// Format controls the optional display of the stack trace. Use %+v to output the stack trace, use %v or %s to output
-// the wrapped error only, use %q to get a single-quoted character literal safely escaped with Go syntax for the wrapped
-// error.
-func (se stackErr) Format(s fmt.State, verb rune) {
-	switch verb {
-	case 'v':
-		if s.Flag('+') {
-			fmt.Fprintf(s, "%+v\n", se.Unwrap())
-			trace, _ := Trace(se, PanicFormat)
-			io.WriteString(s, strings.Join(trace, "\n")) //nolint:errcheck
-			return
-		}
-		io.WriteString(s, se.Error()) //nolint:errcheck
-	case 's':
-		io.WriteString(s, se.Error()) //nolint:errcheck
-	case 'q':
-		fmt.Fprintf(s, "%q", se.Error())
-	}
 }
 
 // StandardFormat is a one-line template used to convert a *runtime.Frame to a
