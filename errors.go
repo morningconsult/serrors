@@ -174,6 +174,9 @@ func Trace(e error, t *template.Template) ([]string, error) {
 
 // Sentinel is a way to turn a constant string into an error. It allows you to safely declare a
 // package-level error so that it can't be accidentally modified to refer to a different value.
+//
+// Deprecated: For package-scoped errors or other errors that should not have
+// stack traces, use the standard library's [errors.New].
 type Sentinel string
 
 // Error is the marker interface for an error. This converts a Sentinel into a string for output.
