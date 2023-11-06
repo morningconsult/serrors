@@ -3,8 +3,7 @@
 
 serrors is a collection of utitilies for creating and working with errors.
 These include automatic stack traces based on ideas from
-<https://github.com/pkg/errors>, immutable package-level sentinel errors,
-based on ideas from Dave Cheney, and the ability to combine HTTP statuses with
+<https://github.com/pkg/errors> and the ability to combine HTTP statuses with
 errors directly.
 
 ## Stack Traces
@@ -56,6 +55,25 @@ is a drop-in replacement for `errors.New`:
 func DoSomething(input string) (string, error) {
     if input == "" {
         return "", serrors.New("cannot supply an empty string to DoSomething")
+    }
+    result, err := ThingToCall(input)
+    return result, serrors.WithStack(err)
+}
+```
+
+Avoid declaring errors at the package scope using `serrors`, as the generated
+stack trace will be associated with the variable declaration rather than the
+location where the application error was encountered. For these cases, prefer
+the standard library's `errors.New` when declaring the package-scoped error,
+and then annotate that error where the stack trace should originate using a
+function such as `serrors.WithStack` or `serrors.Errorf` :
+
+```go
+var ErrUnsupported = errors.New("unsupported")
+
+func DoSomething(input string) (string, error) {
+    if input == "" {
+        return serrors.Errorf("cannot supply an empty string to DoSomething: %w", ErrUnsupported)
     }
     result, err := ThingToCall(input)
     return result, serrors.WithStack(err)
@@ -131,79 +149,6 @@ stack trace is wrapped using a non-`serrors` utility function such as
 `fmt.Errorf`, the stack trace will not be printed this way. For that reason,
 in situations where it is critical to ensure that the stack trace is recovered,
 one of the other two methods should be preferred.
-
-## Sentinel
-
-This error is based on the error type described by Dave Cheney in his blog post
-[Constant Time](https://dave.cheney.net/2019/06/10/constant-time).
-
-For some Go errors, you only need a single value, defined at the package level. These
-errors are called _sentinel_ errors, because they have a single value that you are
-supposed to check against. One example in the standard library is the `io.EOF` error
-that's returned when you get to the end of a file:
-
-```go
-var EOF = errors.New("EOF")
-```
-
-There is one serious drawback to this declaration: it's a `var`. Technically, it could
-be changed by any other package, which would break `==` and `errors.Is` comparisons.
-This is one reason why it is considered bad form to use a variable at the package level.
-
-It would be better if you used a `const` to declare a sentinel error. Unfortunately,
-you can't use a `const` declaration with `errors.New` because `const` declarations
-must be composed of constants, constant literals, and operators, and `errors.New` is
-a function. To work around this, `serrors` defines a type called `Sentinel`. This
-allows you to write:
-
-```go
-const EOF = serrors.Sentinel("EOF")
-```
-
-This looks like a function call, but it's actually a (constant) `string` being
-typecast to an `serrors.Sentinel` type that meets the error interface. Errors of type
-`serrors.Sentinel` work with `==` and `errors.Is`. The following test passes:
-
-```go
-func TestSentinel(t *testing.T) {
-  const msg = "This is a constant error"
-  const s = serrors.Sentinel(msg)
-  if s.Error() != msg {
-    t.Errorf("Expected `%s`, got `%s`", msg, s.Error())
-  }
-
-  err := s
-  if err != s {
-    t.Errorf("should be the same")
-  }
-  if !errors.Is(err, s) {
-    t.Errorf("should be the same")
-  }
-  err2 := serrors.Errorf("Wrapping error: %w", s)
-  if !errors.Is(err2, s) {
-    t.Errorf("should be there")
-  }
-}
-```
-
-Since a sentinel is immutable, it can't contain stack trace information. When you return a sentinel error,
-the best practice is to wrap it in an `serrors.WithStack` call so that stack information is captured. Wrapped
-sentinel errors must be compared using `errors.Is`.
-
-```go
-const NotPositive = serrors.Sentinel("only positive ints are supported")
-
-func DoThing(i int) (int, error) {
-  if i <= 0 {
-    return 0, serrors.WithStack(NotPositive)
-  }
-  return i * 2, nil
-}
-```
-
-The only limitation to sentinels is that the string that's being typecast needs to be a constant expression if you
-are assigning it to a `const`. You can, of course, use `serrors.Sentinel` with a `var`, but that provides no additional
-functionality over an `errors.New`.
 
 ## Status Errors
 
