@@ -94,7 +94,7 @@ func TestWithStatus_nil(t *testing.T) {
 			t.Errorf("want panic %q, got %q", wantPanic, r)
 		}
 	}()
-	serrors.WithStatus(200, nil) // nolint: errcheck
+	serrors.WithStatus(200, nil) //nolint:errcheck
 }
 
 func TestNewFromStatus(t *testing.T) {
