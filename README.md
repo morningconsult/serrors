@@ -186,11 +186,3 @@ func HandleRequest(w http.ResponseWriter, r *http.Request) {
     }
 }
 ```
-
-## Testing serrors
-
-The tests for `serrors` require you to run `go test` with the `-trimpath` flag:
-
-```bash
-go test -trimpath ./...
-```

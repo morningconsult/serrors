@@ -6,7 +6,6 @@ issues:
       linters:
         - bodyclose
         - gocognit
-        - goconst
         - gocyclo
         - gosec
         - lll
@@ -18,24 +17,15 @@ issues:
     - linters: [gosec]
       text: 'G307: Deferring unsafe method'
 
-    # Contexts are best assigned defensively
-    - linters: [ineffassign]
-      text: 'ineffectual assignment to ctx'
-    - linters: [staticcheck]
-      text: 'SA4006: this value of `ctx` is never used'
-
-    # we dont care about package comments
-    - linters: [stylecheck]
-      text: 'ST1000: at least one file in a package should have a package comment'
-
 linters:
   enable:
     - bodyclose
     - errcheck
     - errchkjson
-    - exportloopref
-    - goconst
+    - exptostd
+    - fatcontext
     - gocognit
+    - gocritic
     - gocyclo
     - godot
     - gofumpt
@@ -44,23 +34,19 @@ linters:
     - lll
     - misspell
     - nakedret
+    - nilnesserr
     - nolintlint
+    - perfsprint
     - prealloc
     - revive
+    - sloglint
     - unconvert
     - unparam
-    - stylecheck
+    - usetesting
 
 linters-settings:
   errcheck:
     exclude-functions:
-      # Errors we wouldn't act on after checking
-      - (*database/sql.DB).Close
-      - (*database/sql.Rows).Close
-      - (io.Closer).Close
-      - (*os.File).Close
-      - (net/http.ResponseWriter).Write
-
       # Handled by errchkjson
       - encoding/json.Marshal
       - encoding/json.MarshalIndent
@@ -69,10 +55,6 @@ linters-settings:
   gocognit:
     min-complexity: 10
 
-  goconst:
-    min-len: 0
-    min-occurrences: 3
-
   gocyclo:
     min-complexity: 10
 
@@ -80,17 +62,14 @@ linters-settings:
     local-prefixes: github.com/morningconsult/serrors
 
   govet:
-    check-shadowing: true
+    enable:
+      - shadow
 
   nakedret:
     max-func-lines: 0
 
   revive:
     confidence: 0
-    rules:
-      - name: exported
-        disabled: false
-        severity: warning
-      - name: unused-parameter
-        disabled: false
-        severity: warning
+
+  sloglint:
+    args-on-sep-lines: true
