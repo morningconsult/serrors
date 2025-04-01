@@ -1,21 +1,6 @@
+version: "2"
 issues:
   max-same-issues: 0
-  exclude-use-default: false
-  exclude-rules:
-    - path: '_test\.go'
-      linters:
-        - bodyclose
-        - gocognit
-        - gocyclo
-        - gosec
-        - lll
-        - prealloc
-
-    # Duplicates of errcheck
-    - linters: [gosec]
-      text: 'G104: Errors unhandled'
-    - linters: [gosec]
-      text: 'G307: Deferring unsafe method'
 
 linters:
   enable:
@@ -28,10 +13,9 @@ linters:
     - gocritic
     - gocyclo
     - godot
-    - gofumpt
-    - goimports
     - gosec
     - lll
+    - mirror
     - misspell
     - nakedret
     - nilnesserr
@@ -43,33 +27,78 @@ linters:
     - unconvert
     - unparam
     - usetesting
+  settings:
+    errcheck:
+      exclude-functions:
+        # Errors we wouldn't act on after checking
+        - (*database/sql.DB).Close
+        - (*database/sql.Rows).Close
+        - (io.Closer).Close
+        - (*os.File).Close
+        - (net/http.ResponseWriter).Write
+        - io.WriteString(net/http.ResponseWriter)
+        - fmt.Fprint(net/http.ResponseWriter)
+        - fmt.Fprintf(net/http.ResponseWriter)
+        - fmt.Fprintln(net/http.ResponseWriter)
 
-linters-settings:
-  errcheck:
-    exclude-functions:
-      # Handled by errchkjson
-      - encoding/json.Marshal
-      - encoding/json.MarshalIndent
-      - (*encoding/json.Encoder).Encode
+        # Handled by errchkjson
+        - encoding/json.Marshal
+        - encoding/json.MarshalIndent
+        - (*encoding/json.Encoder).Encode
+    gocognit:
+      min-complexity: 10
+    gocyclo:
+      min-complexity: 10
+    govet:
+      enable:
+        - shadow
+    nakedret:
+      max-func-lines: 0
+    revive:
+      confidence: 0
+    sloglint:
+      args-on-sep-lines: true
+      no-mixed-args: false
+  exclusions:
+    generated: strict
+    rules:
+      - linters:
+          - bodyclose
+          - gocognit
+          - gocyclo
+          - gosec
+          - lll
+          - prealloc
+        path: _test\.go
 
-  gocognit:
-    min-complexity: 10
+      # Overly picky
+      - linters: [revive]
+        path: _test\.go
+        text: unused-parameter
 
-  gocyclo:
-    min-complexity: 10
+      # Duplicates of errcheck
+      - linters: [gosec]
+        text: 'G104: Errors unhandled'
+      - linters: [gosec]
+        text: 'G307: Deferring unsafe method'
 
-  goimports:
-    local-prefixes: github.com/morningconsult/serrors
+      # Contexts are best assigned defensively
+      - linters: [ineffassign]
+        text: ineffectual assignment to `ctx`
+      - linters: [revive]
+        text: "unused-parameter: parameter 'ctx' seems to be unused"
+      - linters: [staticcheck]
+        text: 'SA4006: this value of `ctx` is never used'
 
-  govet:
-    enable:
-      - shadow
-
-  nakedret:
-    max-func-lines: 0
-
-  revive:
-    confidence: 0
-
-  sloglint:
-    args-on-sep-lines: true
+formatters:
+  enable:
+    - gci
+    - gofumpt
+  settings:
+    gci:
+      sections:
+        - standard
+        - default
+        - localmodule
+  exclusions:
+    generated: strict

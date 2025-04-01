@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/morningconsult/serrors"
-
 	"github.com/google/go-cmp/cmp"
+
+	"github.com/morningconsult/serrors"
 )
 
 func TestNewStatusError(t *testing.T) {
